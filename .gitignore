@@ -1,0 +1,4 @@
+.aider*
+zig-out
+.vscode
+.zig-cache
