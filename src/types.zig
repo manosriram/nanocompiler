@@ -9,14 +9,12 @@ pub const ParseError = error{
     InvalidCharacter,
 };
 
-
 pub const NodeType = enum {
     number,
     ident,
     binary_op,
     unary_op,
 };
-
 
 pub const Node = union(NodeType) {
     number: f64,
@@ -62,4 +60,3 @@ pub fn ThreeAddressNode() type {
         }
     };
 }
-

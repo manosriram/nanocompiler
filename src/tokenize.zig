@@ -53,8 +53,5 @@ pub const Tokenize = struct {
         defer _ = self.tokens.deinit();
     }
 
-    pub fn tokenize(_: *Tokenize) void {
-
-    }
-
+    pub fn tokenize(_: *Tokenize) void {}
 };

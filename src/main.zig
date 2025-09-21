@@ -1,11 +1,10 @@
 const std = @import("std");
 const ast = @import("ast.zig");
+const generator = @import("generator.zig");
 
 const FILE_NAME = "source";
 
-const Token = struct {
-    value: []const u8
-};
+const Token = struct { value: []const u8 };
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -42,8 +41,15 @@ pub fn main() !void {
     defer file.close();
     const writer = file.writer();
 
-    try writer.print("// This is the 3 address IR code representation of the source\n\n", .{});
+    try writer.print("// Do not edit. Auto generated 3 address code of the source\n", .{});
     for (a.three_address_nodes.items) |x| {
         try writer.print("{s}\n", .{x.result});
     }
+
+    var g = generator.Generator{
+        .allocator = allocator,
+        .three_address_nodes = a.three_address_nodes,
+    };
+
+    g.generate();
 }

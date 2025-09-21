@@ -1,3 +1,2 @@
-// This is the 3 address IR code representation of the source
-
-t0 = -1
+// Do not edit. Auto generated 3 address code of the source
+t0 = 1 + 2

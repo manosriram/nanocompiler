@@ -35,8 +35,8 @@ pub const Ast = struct {
 
     fn concatToBuffer(buffer: []u8, a: []const u8, b: []const u8) []u8 {
         @memcpy(buffer[0..a.len], a);
-        @memcpy(buffer[a.len..a.len + b.len], b);
-        return buffer[0..a.len + b.len];
+        @memcpy(buffer[a.len .. a.len + b.len], b);
+        return buffer[0 .. a.len + b.len];
     }
 
     fn get_current_token(self: *Ast) Token {
@@ -60,29 +60,28 @@ pub const Ast = struct {
             .str => {
                 switch (right) {
                     .str => {
-                        formatted_string = try std.fmt.allocPrint(self.allocator, "{s} = {s} {s} {s}", .{self.current_var, left.str, op.to_string(), right.str});
-
+                        formatted_string = try std.fmt.allocPrint(self.allocator, "{s} = {s} {s} {s}", .{ self.current_var, left.str, op.to_string(), right.str });
                     },
                     .num => {
-                        formatted_string = try std.fmt.allocPrint(self.allocator, "{s} = {s} {s} {d}", .{self.current_var, left.str, op.to_string(), right.num});
-                    }
+                        formatted_string = try std.fmt.allocPrint(self.allocator, "{s} = {s} {s} {d}", .{ self.current_var, left.str, op.to_string(), right.num });
+                    },
                 }
             },
             .num => {
                 switch (right) {
                     .str => {
-                        formatted_string = try std.fmt.allocPrint(self.allocator, "{s} = {d} {s} {s}", .{self.current_var, left.num, op.to_string(), right.str});
+                        formatted_string = try std.fmt.allocPrint(self.allocator, "{s} = {d} {s} {s}", .{ self.current_var, left.num, op.to_string(), right.str });
                     },
                     .num => {
-                        formatted_string = try std.fmt.allocPrint(self.allocator, "{s} = {d} {s} {d}", .{self.current_var, left.num, op.to_string(), right.num});
-                    }
+                        formatted_string = try std.fmt.allocPrint(self.allocator, "{s} = {d} {s} {d}", .{ self.current_var, left.num, op.to_string(), right.num });
+                    },
                 }
-            }
+            },
         }
 
-        try self.three_address_nodes.append(.{ .operator = op.to_string(), .result = formatted_string, .var_name = self.current_var});
+        try self.three_address_nodes.append(.{ .operator = op.to_string(), .result = formatted_string, .var_name = self.current_var });
 
-        return types.Result{.str = self.current_var};
+        return types.Result{ .str = self.current_var };
     }
 
     // Generates 3 address code from a given AST
@@ -90,8 +89,8 @@ pub const Ast = struct {
     fn generate_3_address_code_from_ast(self: *Ast, node: *types.Node, i: i32) !types.Result {
         switch (node.*) {
             .binary_op => {
-                const left = try self.generate_3_address_code_from_ast(node.binary_op.left, i+1); // "1"
-                const right = try self.generate_3_address_code_from_ast(node.binary_op.right, i+1); // "2"
+                const left = try self.generate_3_address_code_from_ast(node.binary_op.left, i + 1); // "1"
+                const right = try self.generate_3_address_code_from_ast(node.binary_op.right, i + 1); // "2"
 
                 switch (node.binary_op.op) {
                     .multiply => {
@@ -108,36 +107,35 @@ pub const Ast = struct {
                     },
                     else => {
                         return undefined;
-                    }
+                    },
                 }
                 return 0;
-
             },
             .unary_op => {
-                const right = try self.generate_3_address_code_from_ast(node.unary_op.operand, i+1); // "2"
+                const right = try self.generate_3_address_code_from_ast(node.unary_op.operand, i + 1); // "2"
                 self.current_var = try self.concatAllocated(try self.name_generator(), "");
                 var formatted_string: []u8 = "";
                 switch (right) {
                     .str => {
-                        formatted_string = try std.fmt.allocPrint(self.allocator, "{s} = {s}{s}", .{self.current_var, node.unary_op.op.to_string(), right.str});
+                        formatted_string = try std.fmt.allocPrint(self.allocator, "{s} = {s}{s}", .{ self.current_var, node.unary_op.op.to_string(), right.str });
                     },
                     .num => {
-                        formatted_string = try std.fmt.allocPrint(self.allocator, "{s} = {s}{d}", .{self.current_var, node.unary_op.op.to_string(), right.num});
-                    }
+                        formatted_string = try std.fmt.allocPrint(self.allocator, "{s} = {s}{d}", .{ self.current_var, node.unary_op.op.to_string(), right.num });
+                    },
                 }
 
-                try self.three_address_nodes.append(.{ .operator = node.unary_op.op.to_string(), .result = formatted_string, .var_name = self.current_var});
+                try self.three_address_nodes.append(.{ .operator = node.unary_op.op.to_string(), .result = formatted_string, .var_name = self.current_var });
 
-                return types.Result{.str = self.current_var};
+                return types.Result{ .str = self.current_var };
             },
             .number => {
-                return types.Result{.num = node.number};
+                return types.Result{ .num = node.number };
             },
             .ident => {
                 return undefined;
             },
         }
-        return types.Result{.num = node.number};
+        return types.Result{ .num = node.number };
     }
 
     fn print_node(self: *Ast, node: *types.Node) f64 { // use LiteralNode?
@@ -165,7 +163,7 @@ pub const Ast = struct {
                     },
                     else => {
                         return 0;
-                    }
+                    },
                 }
                 return undefined;
             },
@@ -178,7 +176,7 @@ pub const Ast = struct {
                     .plus => {
                         return value;
                     },
-                    else => {}
+                    else => {},
                 }
                 return undefined;
             },
@@ -188,9 +186,9 @@ pub const Ast = struct {
             .ident => {
                 return undefined;
                 // if (self.symbol_table.get(node.ident)) |val| {
-                    // std.debug.print("value of {s} is {}\n", .{node.ident, val.number});
+                // std.debug.print("value of {s} is {}\n", .{node.ident, val.number});
                 // } else {
-                    // std.debug.print("Unknown symbol {s}", .{node.ident});
+                // std.debug.print("Unknown symbol {s}", .{node.ident});
                 // }
             },
         }
@@ -224,11 +222,11 @@ pub const Ast = struct {
 
         try self.tokens.appendSlice(&[_]Token{
             // Test case 1: Simple addition - 1 + 2
-            Token{.line = 0, .type = TokenType.minus, .lexeme = "-"},
-            Token{.line = 0, .type = TokenType.literal, .lexeme = "1"},
             // Token{.line = 0, .type = TokenType.minus, .lexeme = "-"},
-            // Token{.line = 0, .type = TokenType.literal, .lexeme = "2"},
-            // Token{.line = 0, .type = TokenType.plus, .lexeme = "+"},
+            Token{ .line = 0, .type = TokenType.literal, .lexeme = "1" },
+            Token{ .line = 0, .type = TokenType.plus, .lexeme = "+" },
+            Token{ .line = 0, .type = TokenType.literal, .lexeme = "2" },
+            // Token{.line = 0, .type = TokenType.minus, .lexeme = "-"},
             // Token{.line = 0, .type = TokenType.literal, .lexeme = "3"},
             // Token{.line = 0, .type = TokenType.multiply, .lexeme = "*"},
             // Token{.line = 0, .type = TokenType.literal, .lexeme = "4"},
@@ -236,14 +234,14 @@ pub const Ast = struct {
             // Token{.line = 0, .type = TokenType.literal, .lexeme = "5"},
             // Token{.line = 0, .type = TokenType.multiply, .lexeme = "*"},
             // Token{.line = 0, .type = TokenType.literal, .lexeme = "3"},
-            
+
             // // Test case 2: Operator precedence - 2 + 3 * 4
             // Token{.line = 1, .type = TokenType.literal, .lexeme = "2"},
             // Token{.line = 1, .type = TokenType.plus, .lexeme = "+"},
             // Token{.line = 1, .type = TokenType.literal, .lexeme = "3"},
             // Token{.line = 1, .type = TokenType.multiply, .lexeme = "*"},
             // Token{.line = 1, .type = TokenType.literal, .lexeme = "4"},
-            
+
             // Test case 3: Parentheses - (1 + 2) * 3
             // Token{.line = 2, .type = TokenType.open_parantheses, .lexeme = "("},
             // Token{.line = 2, .type = TokenType.literal, .lexeme = "1"},
@@ -253,14 +251,14 @@ pub const Ast = struct {
             // Token{.line = 2, .type = TokenType.multiply, .lexeme = "*"},
             // Token{.line = 2, .type = TokenType.literal, .lexeme = "3"},
             // Token{.line = 2, .type = TokenType.semicolon, .lexeme = ";"},
-            
+
             // // Test case 4: Unary operators - -5 + 10
             // Token{.line = 3, .type = TokenType.minus, .lexeme = "-"},
             // Token{.line = 3, .type = TokenType.literal, .lexeme = "5"},
             // Token{.line = 3, .type = TokenType.plus, .lexeme = "+"},
             // Token{.line = 3, .type = TokenType.literal, .lexeme = "10"},
             // Token{.line = 2, .type = TokenType.semicolon, .lexeme = ";"},
-            
+
             // // // Test case 5: Division - 20 / 4 - 2
             // Token{.line = 4, .type = TokenType.literal, .lexeme = "20"},
             // Token{.line = 4, .type = TokenType.divide, .lexeme = "/"},
@@ -268,7 +266,7 @@ pub const Ast = struct {
             // Token{.line = 4, .type = TokenType.minus, .lexeme = "-"},
             // Token{.line = 4, .type = TokenType.literal, .lexeme = "2"},
             // Token{.line = 2, .type = TokenType.semicolon, .lexeme = ";"},
-            
+
             // // // Test case 6: Complex nested parentheses - ((1 + 2) * (3 - 1))
             // Token{.line = 5, .type = TokenType.open_parantheses, .lexeme = "("},
             // Token{.line = 5, .type = TokenType.open_parantheses, .lexeme = "("},
@@ -284,12 +282,12 @@ pub const Ast = struct {
             // Token{.line = 5, .type = TokenType.close_paranthesis, .lexeme = ")"},
             // Token{.line = 5, .type = TokenType.close_paranthesis, .lexeme = ")"},
             // Token{.line = 2, .type = TokenType.semicolon, .lexeme = ";"},
-            
+
             // // Test case 7: Variable assignment - x = 42
             // Token{.line = 6, .type = TokenType.ident, .lexeme = "x"},
             // Token{.line = 6, .type = TokenType.equal, .lexeme = "="},
             // Token{.line = 6, .type = TokenType.literal, .lexeme = "42"},
-            
+
             // Test case 8: Multiple unary operators - --5
             // Token{.line = 7, .type = TokenType.minus, .value = "-"},
             // Token{.line = 7, .type = TokenType.minus, .value = "-"},
@@ -308,7 +306,6 @@ pub const Ast = struct {
             self.allocator.free(node.result);
         }
         defer _ = self.three_address_nodes.deinit();
-
     }
 
     pub fn destroy_node(self: *Ast, node: *types.Node) void {
@@ -349,21 +346,18 @@ pub const Ast = struct {
 
                     const right = try self.term(); // 23
                     const node = try self.allocator.create(types.Node);
-                    node.* = types.Node{
-                        .binary_op = types.Node.BinOp{
-                            .left = left,
-                            .right = right,
-                            .op = current.type,
-                        }
-                    };
+                    node.* = types.Node{ .binary_op = types.Node.BinOp{
+                        .left = left,
+                        .right = right,
+                        .op = current.type,
+                    } };
                     left = node;
                 },
                 else => {
                     return left;
-                }
+                },
             }
         }
-
 
         return left;
     }
@@ -380,23 +374,21 @@ pub const Ast = struct {
                     const right = try self.factor();
                     const node = try self.allocator.create(types.Node);
 
-                    node.* = types.Node{
-                        .binary_op = types.Node.BinOp{
-                            .left = left,
-                            .right = right,
-                            .op = t.type,
-                        }
-                    };
+                    node.* = types.Node{ .binary_op = types.Node.BinOp{
+                        .left = left,
+                        .right = right,
+                        .op = t.type,
+                    } };
                     left = node;
                     // return node;
                 },
                 // .semicolon => {
-                    // _ = self.eat();
-                    // break;
+                // _ = self.eat();
+                // break;
                 // },
                 else => {
                     return left;
-                }
+                },
             }
         }
         return left;
@@ -439,12 +431,10 @@ pub const Ast = struct {
                 const right = try self.factor();
 
                 const node = try self.allocator.create(types.Node);
-                node.* = types.Node{
-                    .unary_op = types.Node.UnaryOp{
-                        .op = tk.type,
-                        .operand = right,
-                    }
-                };
+                node.* = types.Node{ .unary_op = types.Node.UnaryOp{
+                    .op = tk.type,
+                    .operand = right,
+                } };
 
                 return node;
             },
@@ -455,12 +445,12 @@ pub const Ast = struct {
                 return current;
             },
             // .semicolon => {
-                // _ = self.eat();
-                // return undefined;
+            // _ = self.eat();
+            // return undefined;
             // },
             else => {
                 return undefined;
-            }
+            },
         }
     }
 };
