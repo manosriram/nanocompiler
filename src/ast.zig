@@ -11,7 +11,7 @@ pub const Ast = struct {
     nodes: std.ArrayList(*types.Node),
     symbol_table: std.StringHashMap(*types.Node),
     name_index: f64,
-    three_address_nodes: std.ArrayList(types.ThreeAddressNode(f64)),
+    three_address_nodes: std.ArrayList(types.ThreeAddressNode()),
     current_var: []const u8,
     prev_var: []const u8,
     prev_prev_var: []const u8,
@@ -80,7 +80,7 @@ pub const Ast = struct {
             }
         }
 
-        try self.three_address_nodes.append(.{ .operand1 = 0, .operator = op.to_string(), .operand2 = 0, .result = formatted_string, .var_name = self.current_var});
+        try self.three_address_nodes.append(.{ .operator = op.to_string(), .result = formatted_string, .var_name = self.current_var});
 
         return types.Result{.str = self.current_var};
     }
@@ -126,7 +126,7 @@ pub const Ast = struct {
                     }
                 }
 
-                try self.three_address_nodes.append(.{ .operand1 = 0, .operator = node.unary_op.op.to_string(), .operand2 = 0, .result = formatted_string, .var_name = self.current_var});
+                try self.three_address_nodes.append(.{ .operator = node.unary_op.op.to_string(), .result = formatted_string, .var_name = self.current_var});
 
                 return types.Result{.str = self.current_var};
             },
@@ -219,7 +219,7 @@ pub const Ast = struct {
     pub fn init(self: *Ast) !void {
         self.tokens = std.ArrayList(Token).init(self.allocator);
         self.nodes = std.ArrayList(*types.Node).init(self.allocator);
-        self.three_address_nodes = std.ArrayList(types.ThreeAddressNode(f64)).init(self.allocator);
+        self.three_address_nodes = std.ArrayList(types.ThreeAddressNode()).init(self.allocator);
         self.symbol_table = std.StringHashMap(*types.Node).init(self.allocator);
 
         try self.tokens.appendSlice(&[_]Token{

@@ -41,26 +41,16 @@ pub const Result = union(enum) {
     num: f64,
 };
 
-pub fn ThreeAddressNode(comptime T: type) type {
+pub fn ThreeAddressNode() type {
     return struct {
-        operand1: T,
-        operand2: T,
         operator: []const u8,
         result: []const u8,
         var_name: []const u8,
 
         const Self = @This();
 
-        pub fn init(operand1: T, operand2: T, operator: []const u8, result: []const u8) Self {
-            return .{ .operand1 = operand1, .operand2 = operand2, .operator = operator, .result = result };
-        }
-
-        pub fn getOperand1(self: Self) T {
-            return self.operand1;
-        }
-
-        pub fn getOperand2(self: Self) T {
-            return self.operand2;
+        pub fn init(operator: []const u8, result: []const u8) Self {
+            return .{ .operator = operator, .result = result };
         }
 
         pub fn getOperator(self: Self) []const u8 {
