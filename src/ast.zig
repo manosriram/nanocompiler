@@ -1,86 +1,17 @@
 const std = @import("std");
 const Token = @import("tokenize.zig").Token;
 const TokenType = @import("tokenize.zig").TokenType;
-
-const ParseError = error{
-    UnexpectedToken,
-    ExpectedClosingParen,
-    OutOfMemory,
-    InvalidCharacter,
-};
-
-
-const NodeType = enum {
-    number,
-    ident,
-    binary_op,
-    unary_op,
-};
-
-
-pub const Node = union(NodeType) {
-    number: f64,
-    ident: []const u8,
-    binary_op: BinOp,
-    unary_op: UnaryOp,
-
-    const BinOp = struct {
-        left: *Node,
-        op: TokenType,
-        right: *Node,
-    };
-
-    const UnaryOp = struct {
-        operand: *Node,
-        op: TokenType,
-    };
-};
-
-const Result = union(enum) {
-    str: []const u8,
-    num: f64,
-};
-
-fn ThreeAddressNode(comptime T: type) type {
-    return struct {
-        operand1: T,
-        operand2: T,
-        operator: []const u8,
-        result: []const u8,
-        var_name: []const u8,
-
-        const Self = @This();
-
-        pub fn init(operand1: T, operand2: T, operator: []const u8, result: []const u8) Self {
-            return .{ .operand1 = operand1, .operand2 = operand2, .operator = operator, .result = result };
-        }
-
-        pub fn getOperand1(self: Self) T {
-            return self.operand1;
-        }
-
-        pub fn getOperand2(self: Self) T {
-            return self.operand2;
-        }
-
-        pub fn getOperator(self: Self) []const u8 {
-            return self.operator;
-        }
-
-        pub fn getResult(self: Self) []const u8 {
-            return self.result;
-        }
-    };
-}
+const utils = @import("utils.zig");
+const types = @import("types.zig");
 
 pub const Ast = struct {
     tokens: std.ArrayList(Token),
     allocator: std.mem.Allocator,
     current_token_index: usize,
-    nodes: std.ArrayList(*Node),
-    symbol_table: std.StringHashMap(*Node),
+    nodes: std.ArrayList(*types.Node),
+    symbol_table: std.StringHashMap(*types.Node),
     name_index: f64,
-    three_address_nodes: std.ArrayList(ThreeAddressNode(f64)),
+    three_address_nodes: std.ArrayList(types.ThreeAddressNode(f64)),
     current_var: []const u8,
     prev_var: []const u8,
     prev_prev_var: []const u8,
@@ -96,12 +27,6 @@ pub const Ast = struct {
         }
 
         return false;
-    }
-
-    pub fn usizeToStr(_: *Ast, n: f64) ![]const u8{
-        var buffer : [4096] u8 = undefined;
-        const result =  std.fmt.bufPrintZ(buffer[0..], "{d}", .{n}) catch unreachable;
-        return result;
     }
 
     fn concatAllocated(self: *Ast, a: []const u8, b: []const u8) ![]u8 {
@@ -121,13 +46,13 @@ pub const Ast = struct {
 
     fn name_generator(self: *Ast) ![]const u8 {
         const prefix = "t";
-        const name = try self.usizeToStr(self.name_index);
+        const name = try utils.usizeToStr(self.name_index);
         self.name_index += 1;
 
         return try self.concatAllocated(prefix, name);
     }
 
-    fn _generate_result_for_binary_op(self: *Ast, left: Result, right: Result, op: TokenType) !Result {
+    fn _generate_result_for_binary_node(self: *Ast, left: types.Result, right: types.Result, op: TokenType) !types.Result {
         self.current_var = try self.concatAllocated(try self.name_generator(), "");
         var formatted_string: []u8 = "";
 
@@ -157,34 +82,29 @@ pub const Ast = struct {
 
         try self.three_address_nodes.append(.{ .operand1 = 0, .operator = op.to_string(), .operand2 = 0, .result = formatted_string, .var_name = self.current_var});
 
-        return Result{.str = self.current_var};
+        return types.Result{.str = self.current_var};
     }
 
-    // TODO:
-    // Instead of passing []u8s, try using the ThreeAddressNode
-    // struct. The goal is to have a list of ThreeAddressNode finally
-    // We do not want to return this anywhere, just populate the list of
-    // ThreeAddressNode, when arriving at the solution. The return value
-    // here might be needed to be changed to LiteralNode? For now f64
-    // should do
-    fn generate_3_address_code_from_node(self: *Ast, node: *Node, i: i32) !Result {
+    // Generates 3 address code from a given AST
+    // https://en.wikipedia.org/wiki/Three-address_code
+    fn generate_3_address_code_from_ast(self: *Ast, node: *types.Node, i: i32) !types.Result {
         switch (node.*) {
             .binary_op => {
-                const left = try self.generate_3_address_code_from_node(node.binary_op.left, i+1); // "1"
-                const right = try self.generate_3_address_code_from_node(node.binary_op.right, i+1); // "2"
+                const left = try self.generate_3_address_code_from_ast(node.binary_op.left, i+1); // "1"
+                const right = try self.generate_3_address_code_from_ast(node.binary_op.right, i+1); // "2"
 
                 switch (node.binary_op.op) {
                     .multiply => {
-                        return try self._generate_result_for_binary_op(left, right, TokenType.multiply);
+                        return try self._generate_result_for_binary_node(left, right, TokenType.multiply);
                     },
                     .plus => {
-                        return try self._generate_result_for_binary_op(left, right, TokenType.plus);
+                        return try self._generate_result_for_binary_node(left, right, TokenType.plus);
                     },
                     .minus => {
-                        return try self._generate_result_for_binary_op(left, right, TokenType.minus);
+                        return try self._generate_result_for_binary_node(left, right, TokenType.minus);
                     },
                     .divide => {
-                        return try self._generate_result_for_binary_op(left, right, TokenType.divide);
+                        return try self._generate_result_for_binary_node(left, right, TokenType.divide);
                     },
                     else => {
                         return undefined;
@@ -194,7 +114,7 @@ pub const Ast = struct {
 
             },
             .unary_op => {
-                const right = try self.generate_3_address_code_from_node(node.unary_op.operand, i+1); // "2"
+                const right = try self.generate_3_address_code_from_ast(node.unary_op.operand, i+1); // "2"
                 self.current_var = try self.concatAllocated(try self.name_generator(), "");
                 var formatted_string: []u8 = "";
                 switch (right) {
@@ -208,19 +128,19 @@ pub const Ast = struct {
 
                 try self.three_address_nodes.append(.{ .operand1 = 0, .operator = node.unary_op.op.to_string(), .operand2 = 0, .result = formatted_string, .var_name = self.current_var});
 
-                return Result{.str = self.current_var};
+                return types.Result{.str = self.current_var};
             },
             .number => {
-                return Result{.num = node.number};
+                return types.Result{.num = node.number};
             },
             .ident => {
                 return undefined;
             },
         }
-        return Result{.num = node.number};
+        return types.Result{.num = node.number};
     }
 
-    fn print_node(self: *Ast, node: *Node) f64 { // use LiteralNode?
+    fn print_node(self: *Ast, node: *types.Node) f64 { // use LiteralNode?
         switch (node.*) {
             .binary_op => {
                 const left = self.print_node(node.binary_op.left);
@@ -278,7 +198,7 @@ pub const Ast = struct {
 
     pub fn print(self: *Ast) !void {
         for (self.nodes.items) |node| {
-            _ = try self.generate_3_address_code_from_node(node, 0);
+            _ = try self.generate_3_address_code_from_ast(node, 0);
         }
     }
 
@@ -293,11 +213,14 @@ pub const Ast = struct {
         }
     }
 
+    // TODO: Tokenization from source is hardcoded here for now
+    // Update this to actually tokenize from source and then remove these
+    // hardcoded values
     pub fn init(self: *Ast) !void {
         self.tokens = std.ArrayList(Token).init(self.allocator);
-        self.nodes = std.ArrayList(*Node).init(self.allocator);
-        self.three_address_nodes = std.ArrayList(ThreeAddressNode(f64)).init(self.allocator);
-        self.symbol_table = std.StringHashMap(*Node).init(self.allocator);
+        self.nodes = std.ArrayList(*types.Node).init(self.allocator);
+        self.three_address_nodes = std.ArrayList(types.ThreeAddressNode(f64)).init(self.allocator);
+        self.symbol_table = std.StringHashMap(*types.Node).init(self.allocator);
 
         try self.tokens.appendSlice(&[_]Token{
             // Test case 1: Simple addition - 1 + 2
@@ -388,7 +311,7 @@ pub const Ast = struct {
 
     }
 
-    pub fn destroy_node(self: *Ast, node: *Node) void {
+    pub fn destroy_node(self: *Ast, node: *types.Node) void {
         switch (node.*) {
             .number, .ident => {
                 self.allocator.destroy(node);
@@ -405,10 +328,8 @@ pub const Ast = struct {
         }
     }
 
-    // TODO: create a recursive descent parser
-    pub fn Parse(self: *Ast) ParseError!void {
+    pub fn Parse(self: *Ast) types.ParseError!void {
         while (!self.is_at_end()) {
-            // std.debug.print("got {any}\n", .{self.get_current_token().type});
             try self.nodes.append(try self.expr());
             _ = self.eat();
         }
@@ -416,7 +337,7 @@ pub const Ast = struct {
         std.debug.print("size = {d}\n", .{self.nodes.items.len});
     }
 
-    fn expr(self: *Ast) ParseError!*Node {
+    fn expr(self: *Ast) types.ParseError!*types.Node {
         var left = try self.term();
 
         while (self.get_current_token().type != TokenType.semicolon) {
@@ -427,21 +348,16 @@ pub const Ast = struct {
                     if (!ok) return left;
 
                     const right = try self.term(); // 23
-                    const node = try self.allocator.create(Node);
-                    node.* = Node{
-                        .binary_op = Node.BinOp{
+                    const node = try self.allocator.create(types.Node);
+                    node.* = types.Node{
+                        .binary_op = types.Node.BinOp{
                             .left = left,
                             .right = right,
                             .op = current.type,
                         }
                     };
                     left = node;
-                    // return node;
                 },
-                // .semicolon => {
-                    // _ = self.eat();
-                    // break;
-                // },
                 else => {
                     return left;
                 }
@@ -452,10 +368,9 @@ pub const Ast = struct {
         return left;
     }
 
-    fn term(self: *Ast) ParseError!*Node {
+    fn term(self: *Ast) types.ParseError!*types.Node {
         var left = try self.factor();
 
-        // while (!self.is_at_end()) {
         while (self.get_current_token().type != TokenType.semicolon) {
             const t: Token = self.get_current_token();
             switch (t.type) {
@@ -463,10 +378,10 @@ pub const Ast = struct {
                     const ok = self.eat();
                     if (!ok) return left;
                     const right = try self.factor();
-                    const node = try self.allocator.create(Node);
+                    const node = try self.allocator.create(types.Node);
 
-                    node.* = Node{
-                        .binary_op = Node.BinOp{
+                    node.* = types.Node{
+                        .binary_op = types.Node.BinOp{
                             .left = left,
                             .right = right,
                             .op = t.type,
@@ -487,23 +402,23 @@ pub const Ast = struct {
         return left;
     }
 
-    fn factor(self: *Ast) ParseError!*Node {
+    fn factor(self: *Ast) types.ParseError!*types.Node {
         const t: Token = self.get_current_token();
 
         switch (t.type) {
             .literal => {
-                const node = try self.allocator.create(Node);
+                const node = try self.allocator.create(types.Node);
                 const val = try std.fmt.parseFloat(f64, t.lexeme);
                 _ = self.eat();
 
-                node.* = Node{
+                node.* = types.Node{
                     .number = val,
                 };
 
                 return node;
             },
             .ident => {
-                const node = try self.allocator.create(Node);
+                const node = try self.allocator.create(types.Node);
                 const name = t.lexeme;
                 _ = self.eat();
                 _ = self.eat();
@@ -512,7 +427,7 @@ pub const Ast = struct {
 
                 try self.symbol_table.put(name, right);
 
-                node.* = Node{
+                node.* = types.Node{
                     .ident = name,
                 };
 
@@ -523,9 +438,9 @@ pub const Ast = struct {
                 _ = self.eat();
                 const right = try self.factor();
 
-                const node = try self.allocator.create(Node);
-                node.* = Node{
-                    .unary_op = Node.UnaryOp{
+                const node = try self.allocator.create(types.Node);
+                node.* = types.Node{
+                    .unary_op = types.Node.UnaryOp{
                         .op = tk.type,
                         .operand = right,
                     }
